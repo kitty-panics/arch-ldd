@@ -6,7 +6,11 @@
 
 APP_DIR="$1"
 WORK_SPACE="$(mktemp -d)"
-SYS_PKG=""
+# Command:
+# pacstrap DEST-DIR base linux linux-firmware
+# Datetime:
+# Sun Jan 14 08:25:37 PM EST 2024
+SYS_PKG="acl archlinux-keyring argon2 attr audit base bash binutils brotli bzip2 ca-certificates ca-certificates-mozilla ca-certificates-utils coreutils cryptsetup curl dbus dbus-broker dbus-broker-units device-mapper diffutils e2fsprogs expat file filesystem findutils gawk gcc-libs gdbm gettext glib2 glibc gmp gnupg gnutls gpgme grep gzip hwdata iana-etc icu iproute2 iptables iputils jansson json-c kbd keyutils kmod krb5 libarchive libassuan libbpf libcap libcap-ng libelf libevent libffi libgcrypt libgpg-error libidn2 libksba libldap libmnl libnetfilter_conntrack libnfnetlink libnftnl libnghttp2 libnl libp11-kit libpcap libpsl libsasl libseccomp libsecret libssh2 libsysprof-capture libtasn1 libtirpc libunistring libusb libutempter libverto libxcrypt libxml2 licenses linux linux-api-headers linux-firmware linux-firmware-whence lz4 mkinitcpio mkinitcpio-busybox mpfr ncurses nettle npth openssl p11-kit pacman pacman-mirrorlist pam pambase pciutils pcre2 pinentry popt procps-ng psmisc readline sed shadow sqlite systemd systemd-libs systemd-sysvcompat tar tpm2-tss tzdata util-linux util-linux-libs xz zlib zstd"
 
 # Enter the work-space
 cp -rf "$APP_DIR" "$WORK_SPACE"
@@ -27,7 +31,7 @@ done
 
 # Rejection system basic package
 grep -oP 'by .* ' "$WORK_SPACE"/pacman.txt | awk '{print $2}' | sort -u > "$WORK_SPACE"/pkglist.txt
-echo -e "$SYS_PKG" | while read i; do
+for i in `echo "$SYS_PKG" | tr ' ' '\n'`; do
     sed -i "/$i/d" "$WORK_SPACE"/pkglist.txt
 done
 
