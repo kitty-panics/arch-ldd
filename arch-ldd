@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+#
+# Find shared object dependencies
+#
+
+APP_DIR="$1"
+WORK_SPACE="$(mktemp -d)"
+SYS_PKG=""
+
+# Enter the work-space
+cp -rf "$APP_DIR" "$WORK_SPACE"
+cd "$WORK_SPACE"
+
+# Filter out ELF files
+find "$WORK_SPACE/$APP_DIR" -type f -exec file {} \; | grep '^.* ELF ' | cut -d: -f1 > "$WORK_SPACE"/elf.txt
+
+# Execute `ldd` on ELF file
+for i in `cat "$WORK_SPACE"/elf.txt`; do
+    /usr/bin/ldd "$i" >> "$WORK_SPACE"/ldd.txt 2>/dev/null
+done
+
+# Searching Arch pkg according to ldd info
+for i in `grep -oP '/usr/lib.* ' "$WORK_SPACE"/ldd.txt | sed 's/lib64/lib/g' | sort -u`; do
+    pacman -F "$i" >> "$WORK_SPACE"/pacman.txt
+done
+
+# Rejection system basic package
+grep -oP 'by .* ' "$WORK_SPACE"/pacman.txt | awk '{print $2}' | sort -u > "$WORK_SPACE"/pkglist.txt
+echo -e "$SYS_PKG" | while read i; do
+    sed -i "/$i/d" "$WORK_SPACE"/pkglist.txt
+done
+
+# Output pkg list
+cat "$WORK_SPACE"/pkglist.txt | cut -d '/' -f 2
+
+# Clean up
+rm -rf "$WORK_SPACE/$APP_DIR"
