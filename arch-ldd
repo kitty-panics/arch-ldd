@@ -4,39 +4,45 @@
 # Find shared object dependencies
 #
 
-APP_DIR="$1"
-WORK_SPACE="$(mktemp -d)"
 # Command:
 # pacstrap DEST-DIR base linux linux-firmware
-# Datetime:
-# Sun Jan 14 08:25:37 PM EST 2024
 SYS_PKG="acl archlinux-keyring argon2 attr audit base bash binutils brotli bzip2 ca-certificates ca-certificates-mozilla ca-certificates-utils coreutils cryptsetup curl dbus dbus-broker dbus-broker-units device-mapper diffutils e2fsprogs expat file filesystem findutils gawk gcc-libs gdbm gettext glib2 glibc gmp gnupg gnutls gpgme grep gzip hwdata iana-etc icu iproute2 iptables iputils jansson json-c kbd keyutils kmod krb5 libarchive libassuan libbpf libcap libcap-ng libelf libevent libffi libgcrypt libgpg-error libidn2 libksba libldap libmnl libnetfilter_conntrack libnfnetlink libnftnl libnghttp2 libnl libp11-kit libpcap libpsl libsasl libseccomp libsecret libssh2 libsysprof-capture libtasn1 libtirpc libunistring libusb libutempter libverto libxcrypt libxml2 licenses linux linux-api-headers linux-firmware linux-firmware-whence lz4 mkinitcpio mkinitcpio-busybox mpfr ncurses nettle npth openssl p11-kit pacman pacman-mirrorlist pam pambase pciutils pcre2 pinentry popt procps-ng psmisc readline sed shadow sqlite systemd systemd-libs systemd-sysvcompat tar tpm2-tss tzdata util-linux util-linux-libs xz zlib zstd"
+# Command:
+# pacstrap DEST-DIR xorg-server wayland
+SYS_PKG_X="default-cursors freetype2 graphite harfbuzz libdrm libedit libepoxy libevdev libfontenc libglvnd libgudev libinput libomxil-bellagio libpciaccess libpng libunwind libwacom libx11 libxau libxcb libxcvt libxdamage libxdmcp libxext libxfixes libxfont2 libxkbfile libxrandr libxrender libxshmfence libxxf86vm llvm-libs lm_sensors mesa mtdev pixman vulkan-icd-loader wayland xcb-proto xf86-input-libinput xkeyboard-config xorg-fonts-encodings xorg-server xorg-server-common xorg-setxkbmap xorg-xkbcomp xorgproto"
+# Execute `ldd` through `firejail`
+FIREJAIL_LDD="/usr/bin/firejail --apparmor --caps.drop=all --disable-mnt --machine-id --nodvd --nogroups --nonewprivs --noprofile --notv --nou2f --private --private-dev --quiet /usr/bin/ldd"
+APP_DIR="$1"
+WORK_SPACE="$(mktemp -d)"
 
 # Enter the work-space
 cp -rf "$APP_DIR" "$WORK_SPACE"
 cd "$WORK_SPACE"
 
 # Filter out ELF files
-find "$WORK_SPACE/$APP_DIR" -type f -exec file {} \; | grep '^.* ELF ' | cut -d: -f1 > "$WORK_SPACE"/elf.txt
+find "$WORK_SPACE"/"$APP_DIR" -type f -exec file {} \; | grep ': ELF ' | cut -d: -f1 > "$WORK_SPACE"/elf.txt
 
 # Execute `ldd` on ELF file
 for i in `cat "$WORK_SPACE"/elf.txt`; do
-    /usr/bin/ldd "$i" >> "$WORK_SPACE"/ldd.txt 2>/dev/null
+    chmod +x "$i"
+    $FIREJAIL_LDD "$i" >> "$WORK_SPACE"/ldd.txt 2>/dev/null
 done
 
 # Searching Arch pkg according to ldd info
 for i in `grep -oP '/usr/lib.* ' "$WORK_SPACE"/ldd.txt | sed 's/lib64/lib/g' | sort -u`; do
-    pacman -F "$i" >> "$WORK_SPACE"/pacman.txt
+    pacman -F "$i" | cut -d' ' -f5 >> "$WORK_SPACE"/pacman.txt
 done
 
 # Rejection system basic package
-grep -oP 'by .* ' "$WORK_SPACE"/pacman.txt | awk '{print $2}' | sort -u > "$WORK_SPACE"/pkglist.txt
-for i in `echo "$SYS_PKG" | tr ' ' '\n'`; do
+sort -u "$WORK_SPACE"/pacman.txt | cut -d'/' -f2 > "$WORK_SPACE"/pkglist.txt
+for i in `echo "$SYS_PKG $SYS_PKG_X" | tr ' ' '\n'`; do
     sed -i "/$i/d" "$WORK_SPACE"/pkglist.txt
 done
 
 # Output pkg list
-cat "$WORK_SPACE"/pkglist.txt | cut -d '/' -f 2
+for i in `cat "$WORK_SPACE"/pkglist.txt`; do
+    echo -n "'$i' "
+done
 
 # Clean up
-rm -rf "$WORK_SPACE/$APP_DIR"
+rm -rf "$WORK_SPACE"
