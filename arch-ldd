@@ -4,12 +4,12 @@
 # Find shared object dependencies
 #
 
-# Command:
-# pacstrap DEST-DIR base linux linux-firmware
+# Command: pacstrap DEST-DIR base linux linux-firmware
 SYS_PKG="acl archlinux-keyring argon2 attr audit base bash binutils brotli bzip2 ca-certificates ca-certificates-mozilla ca-certificates-utils coreutils cryptsetup curl dbus dbus-broker dbus-broker-units device-mapper diffutils e2fsprogs expat file filesystem findutils gawk gcc-libs gdbm gettext glib2 glibc gmp gnupg gnutls gpgme grep gzip hwdata iana-etc icu iproute2 iptables iputils jansson json-c kbd keyutils kmod krb5 libarchive libassuan libbpf libcap libcap-ng libelf libevent libffi libgcrypt libgpg-error libidn2 libksba libldap libmnl libnetfilter_conntrack libnfnetlink libnftnl libnghttp2 libnl libp11-kit libpcap libpsl libsasl libseccomp libsecret libssh2 libsysprof-capture libtasn1 libtirpc libunistring libusb libutempter libverto libxcrypt libxml2 licenses linux linux-api-headers linux-firmware linux-firmware-whence lz4 mkinitcpio mkinitcpio-busybox mpfr ncurses nettle npth openssl p11-kit pacman pacman-mirrorlist pam pambase pciutils pcre2 pinentry popt procps-ng psmisc readline sed shadow sqlite systemd systemd-libs systemd-sysvcompat tar tpm2-tss tzdata util-linux util-linux-libs xz zlib zstd"
-# Command:
-# pacstrap DEST-DIR xorg-server wayland
+# Command: pacstrap DEST-DIR xorg-server wayland
 SYS_PKG_X="default-cursors freetype2 graphite harfbuzz libdrm libedit libepoxy libevdev libfontenc libglvnd libgudev libinput libomxil-bellagio libpciaccess libpng libunwind libwacom libx11 libxau libxcb libxcvt libxdamage libxdmcp libxext libxfixes libxfont2 libxkbfile libxrandr libxrender libxshmfence libxxf86vm llvm-libs lm_sensors mesa mtdev pixman vulkan-icd-loader wayland xcb-proto xf86-input-libinput xkeyboard-config xorg-fonts-encodings xorg-server xorg-server-common xorg-setxkbmap xorg-xkbcomp xorgproto"
+# Command: pacstrap DEST-DIR gtk3 qt5
+SYS_PKG_GUI="adobe-source-code-pro-fonts adwaita-cursors adwaita-icon-theme alsa-lib alsa-topology-conf alsa-ucm-conf aom assimp at-spi2-core avahi bluez-libs cairo cantarell-fonts cdparanoia dav1d db5.3 dconf desktop-file-utils dnssec-anchors double-conversion duktape ffmpeg fftw flac fontconfig freeglut fribidi gdk-pixbuf2 giflib glib-networking glslang glu gnu-free-fonts gperftools graphene gsettings-desktop-schemas gsm gst-plugins-base gst-plugins-base-libs gstreamer gtk-update-icon-cache gtk3 hicolor-icon-theme hidapi highway hunspell hwloc imath iso-codes jack2 jasper jbigkit json-glib l-smash lame lcms2 ldns libass libasyncns libavc1394 libbluray libbs2b libcloudproviders libcolord libcups libdaemon libdatrie libdeflate libdovi libice libiec61883 libjpeg-turbo libjxl libmng libmodplug libogg libopenmpt libplacebo libproxy libpulse libraw1394 librsvg libsamplerate libsm libsndfile libsoup3 libsoxr libssh libstemmer libthai libtheora libtiff libtool libunibreak libva libvdpau libvorbis libvpl libvpx libwebp libxcomposite libxcursor libxft libxi libxinerama libxkbcommon libxkbcommon-x11 libxmu libxslt libxss libxt libxtst libxv lzo md4c minizip mpg123 nspr nss ocl-icd openal opencore-amr openexr openjpeg2 openmpi openpmix openssh opus orc pango portaudio qt5-3d qt5-base qt5-charts qt5-connectivity qt5-datavis3d qt5-declarative qt5-doc qt5-examples qt5-gamepad qt5-graphicaleffects qt5-imageformats qt5-location qt5-lottie qt5-multimedia qt5-networkauth qt5-purchasing qt5-quick3d qt5-quickcontrols qt5-quickcontrols2 qt5-quicktimeline qt5-remoteobjects qt5-script qt5-scxml qt5-sensors qt5-serialbus qt5-serialport qt5-speech qt5-svg qt5-tools qt5-translations qt5-virtualkeyboard qt5-wayland qt5-webchannel qt5-webengine qt5-webglplugin qt5-websockets qt5-webview qt5-x11extras qt5-xmlpatterns rav1e rubberband sdl2 shaderc shared-mime-info snappy speex speexdsp spirv-tools srt svt-av1 tracker3 tslib v4l-utils vid.stab vmaf x264 x265 xcb-util xcb-util-image xcb-util-keysyms xcb-util-renderutil xcb-util-wm xdg-utils xorg-xprop xorg-xset xvidcore xxhash zimg"
 # Execute `ldd` through `firejail`
 FIREJAIL_LDD="/usr/bin/firejail --apparmor --caps.drop=all --disable-mnt --machine-id --nodvd --nogroups --nonewprivs --noprofile --notv --nou2f --private --private-dev --quiet /usr/bin/ldd"
 APP_DIR="$1"
@@ -35,7 +35,7 @@ done
 
 # Rejection system basic package
 sort -u "$WORK_SPACE"/pacman.txt | cut -d'/' -f2 > "$WORK_SPACE"/pkglist.txt
-for i in `echo "$SYS_PKG $SYS_PKG_X" | tr ' ' '\n'`; do
+for i in `echo "$SYS_PKG $SYS_PKG_X $SYS_PKG_GUI" | tr ' ' '\n'`; do
     sed -i "/$i/d" "$WORK_SPACE"/pkglist.txt
 done
 
