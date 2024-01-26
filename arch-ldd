@@ -10,22 +10,24 @@ SYS_PKG="acl archlinux-keyring argon2 attr audit base bash binutils brotli bzip2
 SYS_PKG_X="default-cursors freetype2 graphite harfbuzz libdrm libedit libepoxy libevdev libfontenc libglvnd libgudev libinput libomxil-bellagio libpciaccess libpng libunwind libwacom libx11 libxau libxcb libxcvt libxdamage libxdmcp libxext libxfixes libxfont2 libxkbfile libxrandr libxrender libxshmfence libxxf86vm llvm-libs lm_sensors mesa mtdev pixman vulkan-icd-loader wayland xcb-proto xf86-input-libinput xkeyboard-config xorg-fonts-encodings xorg-server xorg-server-common xorg-setxkbmap xorg-xkbcomp xorgproto"
 # Command: pacstrap DEST-DIR gtk3 qt5
 SYS_PKG_GUI="adobe-source-code-pro-fonts adwaita-cursors adwaita-icon-theme alsa-lib alsa-topology-conf alsa-ucm-conf aom assimp at-spi2-core avahi bluez-libs cairo cantarell-fonts cdparanoia dav1d db5.3 dconf desktop-file-utils dnssec-anchors double-conversion duktape ffmpeg fftw flac fontconfig freeglut fribidi gdk-pixbuf2 giflib glib-networking glslang glu gnu-free-fonts gperftools graphene gsettings-desktop-schemas gsm gst-plugins-base gst-plugins-base-libs gstreamer gtk-update-icon-cache gtk3 hicolor-icon-theme hidapi highway hunspell hwloc imath iso-codes jack2 jasper jbigkit json-glib l-smash lame lcms2 ldns libass libasyncns libavc1394 libbluray libbs2b libcloudproviders libcolord libcups libdaemon libdatrie libdeflate libdovi libice libiec61883 libjpeg-turbo libjxl libmng libmodplug libogg libopenmpt libplacebo libproxy libpulse libraw1394 librsvg libsamplerate libsm libsndfile libsoup3 libsoxr libssh libstemmer libthai libtheora libtiff libtool libunibreak libva libvdpau libvorbis libvpl libvpx libwebp libxcomposite libxcursor libxft libxi libxinerama libxkbcommon libxkbcommon-x11 libxmu libxslt libxss libxt libxtst libxv lzo md4c minizip mpg123 nspr nss ocl-icd openal opencore-amr openexr openjpeg2 openmpi openpmix openssh opus orc pango portaudio qt5-3d qt5-base qt5-charts qt5-connectivity qt5-datavis3d qt5-declarative qt5-doc qt5-examples qt5-gamepad qt5-graphicaleffects qt5-imageformats qt5-location qt5-lottie qt5-multimedia qt5-networkauth qt5-purchasing qt5-quick3d qt5-quickcontrols qt5-quickcontrols2 qt5-quicktimeline qt5-remoteobjects qt5-script qt5-scxml qt5-sensors qt5-serialbus qt5-serialport qt5-speech qt5-svg qt5-tools qt5-translations qt5-virtualkeyboard qt5-wayland qt5-webchannel qt5-webengine qt5-webglplugin qt5-websockets qt5-webview qt5-x11extras qt5-xmlpatterns rav1e rubberband sdl2 shaderc shared-mime-info snappy speex speexdsp spirv-tools srt svt-av1 tracker3 tslib v4l-utils vid.stab vmaf x264 x265 xcb-util xcb-util-image xcb-util-keysyms xcb-util-renderutil xcb-util-wm xdg-utils xorg-xprop xorg-xset xvidcore xxhash zimg"
+
+# Filter level
+PKG_FILTER_v1="$SYS_PKG"
+PKG_FILTER_v2="$SYS_PKG_X $SYS_PKG_GUI"
+# Working directory
+WORK_SPACE="$(mktemp -d)"
 # Execute `ldd` through `firejail`
 FIREJAIL_LDD="/usr/bin/firejail --apparmor --caps.drop=all --disable-mnt --machine-id --nodvd --nogroups --nonewprivs --noprofile --notv --nou2f --private --private-dev --quiet /usr/bin/ldd"
-case "$1" in
-    "c" | "-c" | "cli" | "--cli")
-        APP_DIR="$2"
-        PKG_FILTER="$SYS_PKG"
-    ;;
-    *)
-        APP_DIR="$1"
-        PKG_FILTER="$SYS_PKG $SYS_PKG_X $SYS_PKG_GUI"
-    ;;
-esac
-WORK_SPACE="$(mktemp -d)"
+# 
+APP_DIR="$1"
+if [[ -n "$2" ]]; then
+    REPO_DB_GZ="$2"
+else
+    REPO_DB_GZ="/usr/share/pacman-F/arch-repo.db.gz"
+fi
 
 # Enter the work-space
-cp -rf "$APP_DIR" "$WORK_SPACE"
+cp -r "$APP_DIR" "$WORK_SPACE"
 cd "$WORK_SPACE"
 
 # Filter out ELF files
@@ -38,17 +40,41 @@ for i in `cat "$WORK_SPACE"/elf.txt`; do
 done
 
 # Searching Arch pkg according to ldd info
-for i in `grep -oP '/usr/lib.* ' "$WORK_SPACE"/ldd.txt | sed 's/lib64/lib/g' | sort -u`; do
-    pacman -F "$i" | cut -d' ' -f5 >> "$WORK_SPACE"/pacman.txt
+grep -oP '/usr/lib.* ' "$WORK_SPACE"/ldd.txt | sed 's/lib64/lib/g' | sort -u > "$WORK_SPACE"/lib.txt
+lib_list=()
+for i in `cat "$WORK_SPACE"/lib.txt | sed 's/ //g'`; do
+    lib_list+=("'$i',")
+done
+lib_list=$(echo "[${lib_list[@]}]")
+pacman-F "$REPO_DB_GZ" "${lib_list[@]}" >> "$WORK_SPACE"/pacman.txt
+
+# 
+sort -u "$WORK_SPACE"/pacman.txt | cut -d'/' -f2 > "$WORK_SPACE"/pkglist.txt
+cp "$WORK_SPACE"/pkglist.txt "$WORK_SPACE"/pkglist.txt.bak
+
+# Output pkg list (Original)
+echo -e "Unfiltered:"
+echo -e "\e[34mUnfiltered:\e[0m"
+for i in `cat "$WORK_SPACE"/pkglist.txt`; do
+    echo -n "'$i' "
 done
 
-# Rejection system basic package
-sort -u "$WORK_SPACE"/pacman.txt | cut -d'/' -f2 > "$WORK_SPACE"/pkglist.txt
-for i in `echo "$PKG_FILTER" | tr ' ' '\n'`; do
+# Rejection system basic package (v1)
+for i in `echo "$PKG_FILTER_v1" | tr ' ' '\n'`; do
     sed -i "/$i/d" "$WORK_SPACE"/pkglist.txt
 done
-
 # Output pkg list
+echo -e "\n\n\e[34mFiltered (v1):\e[0m"
+for i in `cat "$WORK_SPACE"/pkglist.txt`; do
+    echo -n "'$i' "
+done
+
+# Rejection system basic package (v2)
+for i in `echo "$PKG_FILTER_v2" | tr ' ' '\n'`; do
+    sed -i "/$i/d" "$WORK_SPACE"/pkglist.txt
+done
+# Output pkg list
+echo -e "\n\n\e[34mFiltered (v2):\e[0m"
 for i in `cat "$WORK_SPACE"/pkglist.txt`; do
     echo -n "'$i' "
 done
